@@ -1,11 +1,12 @@
 header:
   version: 14
 
-distro: poky
+distro: vista-linux
 
 env:
   MENDER_TOKEN: null
-  MENDER_URL: https://hosted.mender.io  
+  MENDER_URL: https://hosted.mender.io
+  SCRIPT_SIGNING_KEY: null  
 
 repos:
   openembedded-core:
@@ -45,13 +46,16 @@ repos:
       meta-tgp-core:
       meta-tgp-extras:
 
+  meta-tgp-closed:
+    url: git@github.com:tjmonk/meta-tgp-closed.git
+    branch: main
+    path: layers/meta-tgp-closed
+
   meta-vista:
     url: git@github.com:tjmonk/meta-vista.git
     branch: main
     path: layers/meta-vista
-    layers:
-      meta-vista:
-      
+
   meta-mender:
     url: https://github.com/mendersoftware/meta-mender.git
     branch: scarthgap
@@ -84,15 +88,23 @@ repos:
 machine: seeed-recomputer-r110x-mender
 
 local_conf_header:
+  parallelism: |
+    # Controls how many recipes BitBake runs at once
+    BB_NUMBER_THREADS = "16"
+    # Controls how many cores each individual recipe's 'make' can use
+    # Lowering this to 16 avoids race conditions in GCC and libxml2
+    PARALLEL_MAKE = "-j 16"
+    
   base: |
     CONF_VERSION = "2"
     PACKAGE_CLASSES = "package_ipk"
     INIT_MANAGER = "systemd"
     LICENSE_FLAGS_ACCEPTED = "synaptics-killswitch"
+    BB_ENV_PASSTHROUGH_ADDITIONS += "SCRIPT_SIGNING_KEY"
 
   mender-artifact: |
     MENDER_DEVICE_TYPE = "hillcrest_vista_gateway"
-    MENDER_ARTIFACT_NAME = "gha_autobuild"
+    MENDER_ARTIFACT_NAME:forcevariable = "hillcrest_vista_gateway-release-10"
 
   mender-full: |
     INHERIT += "mender-full"
@@ -139,4 +151,4 @@ local_conf_header:
     MENDER_FEATURES_DISABLE:append = " mender-grub mender-image-uefi"
 
 target:
-  - core-image-base
+  - vista-image
