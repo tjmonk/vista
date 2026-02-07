@@ -79,6 +79,7 @@ repos:
     path: layers/meta-mender-community
     layers:
       meta-mender-raspberrypi:
+      meta-mender-update-modules:
 
   meta-seeed-cm4:
     url: https://github.com/Seeed-Studio/meta-seeed-cm4.git
@@ -98,13 +99,14 @@ local_conf_header:
   base: |
     CONF_VERSION = "2"
     PACKAGE_CLASSES = "package_ipk"
+    IMAGE_FEATURES:append = " package-management"
     INIT_MANAGER = "systemd"
     LICENSE_FLAGS_ACCEPTED = "synaptics-killswitch"
     BB_ENV_PASSTHROUGH_ADDITIONS += "SCRIPT_SIGNING_KEY"
 
   mender-artifact: |
     MENDER_DEVICE_TYPE = "hillcrest_vista_gateway"
-    MENDER_ARTIFACT_NAME:forcevariable = "hillcrest_vista_gateway-release-10"
+    MENDER_ARTIFACT_NAME:forcevariable = "vista-rc17"
 
   mender-full: |
     INHERIT += "mender-full"
@@ -152,3 +154,5 @@ local_conf_header:
 
 target:
   - vista-image
+  # Package-only Mender artifacts (partial updates); edit meta-vista artifact-list to define
+  - mender-package-artifacts
