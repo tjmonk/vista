@@ -6,7 +6,8 @@ distro: vista-linux
 env:
   MENDER_TOKEN: null
   MENDER_URL: https://hosted.mender.io
-  SCRIPT_SIGNING_KEY: null  
+  SCRIPT_SIGNING_KEY: null
+  DEVICE_NAME: Vista
 
 repos:
   openembedded-core:
@@ -62,7 +63,7 @@ repos:
     path: layers/meta-mender
     layers:
       meta-mender-core:
-  
+
   meta-raspberrypi:
     url: https://github.com/agherzan/meta-raspberrypi.git
     branch: scarthgap
@@ -95,7 +96,7 @@ local_conf_header:
     # Controls how many cores each individual recipe's 'make' can use
     # Lowering this to 16 avoids race conditions in GCC and libxml2
     PARALLEL_MAKE = "-j 16"
-    
+
   base: |
     CONF_VERSION = "2"
     PACKAGE_CLASSES = "package_ipk"
@@ -106,31 +107,31 @@ local_conf_header:
 
   mender-artifact: |
     MENDER_DEVICE_TYPE = "hillcrest_vista_gateway"
-    MENDER_ARTIFACT_NAME:forcevariable = "vista-rc17"
+    MENDER_ARTIFACT_NAME:forcevariable = "vista-rc18"
 
   mender-full: |
     INHERIT += "mender-full"
-  
+
   mender-server: |
     MENDER_SERVER_URL = "${MENDER_URL}"
     MENDER_TENANT_TOKEN = "${MENDER_TOKEN}"
-  
+
   raspberrypi: |
     RPI_USE_U_BOOT = "1"
     ENABLE_UART = "1"
     MENDER_BOOT_PART_SIZE_MB = "100"
     IMAGE_INSTALL:append = " kernel-image kernel-devicetree userlandtools"
     IMAGE_FSTYPES:remove = " rpi-sdimg"
-  
+
   seeed-recomputer: |
     # Seeed reComputer R110x specific configurations
     PREFERRED_VERSION_linux-raspberrypi ?= "6.12%"
-  
+
     # Enable I2C and UART
     KERNEL_MODULE_AUTOLOAD:rpi += "i2c-dev"
     ENABLE_I2C = "1"
     ENABLE_UART = "1"
-    
+
     # Install seeed-linux-dtoverlays package for reComputer-R110x.dtbo
     IMAGE_INSTALL:append = " seeed-linux-dtoverlays"
 
@@ -140,11 +141,11 @@ local_conf_header:
 
     # Enable SSH server with openssh
     IMAGE_FEATURES:append = " ssh-server-openssh"
-    
+
     # Copy reComputer-R110x.dtbo to boot partition overlays directory
     # This ensures the dtbo file is available in the boot partition for U-Boot to load
     IMAGE_BOOT_FILES:append = " reComputer-R110x.dtbo;overlays/reComputer-R110x.dtbo"
-    
+
     # Mender specific configurations for reComputer R110x
     MENDER_ARTIFACT_NAME = "recomputer-r110x-release-1"
     MENDER_BOOT_PART_SIZE_MB = "64"
