@@ -107,7 +107,7 @@ local_conf_header:
 
   mender-artifact: |
     MENDER_DEVICE_TYPE = "hillcrest_vista_gateway"
-    MENDER_ARTIFACT_NAME:forcevariable = "vista-rc18"
+    MENDER_ARTIFACT_NAME:forcevariable = "vista-rc20"
 
   mender-full: |
     INHERIT += "mender-full"
