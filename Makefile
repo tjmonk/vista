@@ -17,20 +17,24 @@ BUILD_DIR ?= build
 WEBUI_DIR = layers/meta-vista/recipes-extended/vista-web-ui/files
 WEBUI_DIST = $(WEBUI_DIR)/dist
 
-.PHONY: help image webui deploy-webui clean-webui package-webui all check-env check-webui check-image
+.PHONY: help image webui deploy-webui clean-webui package-webui all check-env check-webui check-image \
+       package-bootscripts mender-bootscripts deploy-bootscripts
 
 help:
 	@echo "Vista Gateway Build and Deployment"
 	@echo ""
 	@echo "Targets:"
-	@echo "  make image          - Build full Yocto image using kas"
-	@echo "  make webui          - Build the React web UI using Docker"
-	@echo "  make package-webui - Build web UI IPK package (requires kas)"
-	@echo "  make deploy-webui   - Build package and deploy to target device"
-	@echo "  make clean-webui   - Clean web UI build artifacts"
-	@echo "  make check-webui   - Check if web UI is built"
-	@echo "  make check-image   - Check if image is built"
-	@echo "  make all            - Build web UI and full image"
+	@echo "  make image              - Build full Yocto image using kas"
+	@echo "  make webui              - Build the React web UI using Docker"
+	@echo "  make package-webui      - Build web UI IPK package (requires kas)"
+	@echo "  make deploy-webui       - Build package and deploy to target device"
+	@echo "  make clean-webui        - Clean web UI build artifacts"
+	@echo "  make package-bootscripts - Build firstboot + webcert IPK packages"
+	@echo "  make mender-bootscripts  - Build mender artifacts for bootscripts"
+	@echo "  make deploy-bootscripts  - Build and deploy bootscripts to target device"
+	@echo "  make check-webui        - Check if web UI is built"
+	@echo "  make check-image        - Check if image is built"
+	@echo "  make all                - Build web UI and full image"
 	@echo ""
 	@echo "Environment variables:"
 	@echo "  TARGET_IP          - Target device IP/hostname (default: vista-00018.local)"
@@ -41,6 +45,7 @@ help:
 	@echo "  make image"
 	@echo "  make webui"
 	@echo "  make deploy-webui TARGET_IP=192.168.1.100"
+	@echo "  make deploy-bootscripts TARGET_IP=vista-00018.local"
 	@echo "  make all TARGET_IP=vista-00018.local"
 
 # Build the React web UI using Docker
@@ -140,6 +145,70 @@ deploy-webui: check-env package-webui
 	echo "Web UI should now be available at:"; \
 	echo "  https://$(TARGET_IP)"; \
 	echo "  https://$(TARGET_IP)/login"
+
+# Build bootscripts IPK packages (firstboot + webcert) using bitbake
+package-bootscripts:
+	@echo "=========================================="
+	@echo "Building Bootscripts Packages"
+	@echo "=========================================="
+	@if command -v kas >/dev/null 2>&1; then \
+		kas shell $(KAS_FILE) -c "bitbake firstboot webcert"; \
+	else \
+		echo "Error: kas not found. Please install kas or use 'make image' instead"; \
+		exit 1; \
+	fi
+	@echo "Package build complete."
+	@echo "  firstboot:"; find $(BUILD_DIR)/tmp/deploy/ipk -name "firstboot_*.ipk" 2>/dev/null | head -1 || echo "    (not found)"
+	@echo "  webcert:"; find $(BUILD_DIR)/tmp/deploy/ipk -name "webcert_*.ipk" 2>/dev/null | head -1 || echo "    (not found)"
+
+# Build mender artifacts for bootscripts (firstboot+webcert bundle and standalone webcert)
+# Always cleans mender-package-artifacts sstate first so artifacts are regenerated
+# with the latest IPKs (bitbake won't re-run do_deploy if its own sstate is cached)
+mender-bootscripts: package-bootscripts
+	@echo "=========================================="
+	@echo "Building Bootscripts Mender Artifacts"
+	@echo "=========================================="
+	@if command -v kas >/dev/null 2>&1; then \
+		kas shell $(KAS_FILE) -c "bitbake mender-package-artifacts -c cleansstate && bitbake mender-package-artifacts"; \
+	else \
+		echo "Error: kas not found. Please install kas."; \
+		exit 1; \
+	fi
+	@echo "Mender artifact build complete. Artifacts:"
+	@find $(BUILD_DIR)/tmp/deploy/images -name "firstboot-*.mender" -o -name "webcert-*.mender" 2>/dev/null || echo "  (none found)"
+
+# Deploy bootscripts mender artifact to target device
+deploy-bootscripts: check-env mender-bootscripts
+	@echo "=========================================="
+	@echo "Deploying Bootscripts to $(TARGET_IP)"
+	@echo "=========================================="
+	@MENDER_FILE=$$(find $(BUILD_DIR)/tmp/deploy/images -name "firstboot-*.mender" 2>/dev/null | head -1); \
+	if [ -z "$$MENDER_FILE" ]; then \
+		echo "Error: firstboot mender artifact not found."; \
+		exit 1; \
+	fi; \
+	echo "Found artifact: $$MENDER_FILE"; \
+	echo "Copying to target device..."; \
+	scp "$$MENDER_FILE" root@$(TARGET_IP):/tmp/bootscripts.mender || { \
+		echo "Error: Failed to copy artifact to device. Check:"; \
+		echo "  1. Device is reachable: ping $(TARGET_IP)"; \
+		echo "  2. SSH access is configured"; \
+		echo "  3. TARGET_IP is correct (current: $(TARGET_IP))"; \
+		exit 1; \
+	}; \
+	echo "Installing artifact on device..."; \
+	ssh root@$(TARGET_IP) "mender install /tmp/bootscripts.mender" || { \
+		echo "Error: Failed to install mender artifact on device"; \
+		exit 1; \
+	}; \
+	echo "Cleaning up temporary file..."; \
+	ssh root@$(TARGET_IP) "rm -f /tmp/bootscripts.mender" || true; \
+	echo ""; \
+	echo "=========================================="; \
+	echo "Deployment complete!"; \
+	echo "=========================================="; \
+	echo "Bootscripts (firstboot + webcert) deployed to $(TARGET_IP)"; \
+	echo "Reboot the device to apply the bootscripts."
 
 # Clean web UI build artifacts
 clean-webui:
