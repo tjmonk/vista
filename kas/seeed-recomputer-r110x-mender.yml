@@ -41,7 +41,7 @@ repos:
 
   meta-tgp:
     url: https://github.com/tjmonk/meta-tgp.git
-    branch: main
+    branch: scarthgap
     path: layers/meta-tgp
     layers:
       meta-tgp-core:
